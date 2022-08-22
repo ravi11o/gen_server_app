@@ -3,18 +3,22 @@ defmodule Todo.List do
 
   # Callback functions executed on server interface
 
-  def init(_), do: {:ok, []}
-
-  def handle_call({:get, date_tuple}, _, state) do
-    {:reply, Enum.filter(state, &(&1.date == date_tuple)), state}
+  def init(todo_list_name) do
+    {:ok, {todo_list_name, Todo.Database.get(todo_list_name) || []}}
   end
 
-  def handle_call(:list, _, state) do
-    {:reply, state, state}
+  def handle_call({:get, date_tuple}, _, {todo_name, state}) do
+    {:reply, Enum.filter(state, &(&1.date == date_tuple)), {todo_name, state}}
   end
 
-  def handle_cast({:put, todo}, state) do
-    {:noreply, [todo | state]}
+  def handle_call(:list, _, {todo_name, state}) do
+    {:reply, state, {todo_name, state}}
+  end
+
+  def handle_cast({:put, todo}, {todo_name, state}) do
+    new_state = [todo | state]
+    Todo.Database.store(todo_name, todo)
+    {:noreply, {todo_name, new_state}}
   end
 
   def handle_info(_, state) do
@@ -23,8 +27,8 @@ defmodule Todo.List do
 
   # Generic code called by the client
 
-  def start do
-    GenServer.start(__MODULE__, nil)
+  def start(todo_list_name) do
+    GenServer.start(__MODULE__, todo_list_name)
   end
 
   def add(pid, todo) do

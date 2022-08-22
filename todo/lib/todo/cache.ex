@@ -9,7 +9,10 @@ defmodule Todo.Cache do
     GenServer.call(cache_pid, {:server_process, todo_list_name})
   end
 
-  def init(_), do: {:ok, :ets.new(:cache_registry, [:set, :protected, :named_table])}
+  def init(_) do
+    Todo.Database.start("./persist/")
+    {:ok, :ets.new(:cache_registry, [:set, :protected, :named_table])}
+  end
 
   def handle_call({:server_process, todo_list_name}, _, servers) do
     case :ets.lookup(:cache_registry, todo_list_name) do
@@ -17,7 +20,7 @@ defmodule Todo.Cache do
         {:reply, pid, servers}
 
       [] ->
-        {:ok, new_pid} = Todo.List.start()
+        {:ok, new_pid} = Todo.List.start(todo_list_name)
 
         {:reply, new_pid, :ets.insert(:cache_registry, {todo_list_name, new_pid})}
     end
