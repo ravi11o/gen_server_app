@@ -6,35 +6,31 @@ defmodule Todo.Database do
   end
 
   def store(key, data) do
-    GenServer.cast(:database_server, {:store, key, data})
+    worker = get_worker(key)
+    GenServer.cast(worker, {:store, key, data})
   end
 
   def get(key) do
-    GenServer.call(:database_server, {:get, key})
+    worker = get_worker(key)
+    GenServer.call(worker, {:get, key})
   end
 
   def init(db_folder) do
     File.mkdir_p(db_folder)
-    {:ok, db_folder}
+    :ets.new(:db_workers, [:set, :protected, :named_table])
+
+    0..2
+    |> Enum.each(fn i ->
+      {_, pid} = Todo.DatabaseWorker.start(db_folder)
+      :ets.insert(:db_workers, {i, pid})
+    end)
+
+    {:ok, nil}
   end
 
-  def handle_cast({:store, key, data}, db_folder) do
-    db_folder
-    |> file_name(key)
-    |> File.write!(:erlang.term_to_binary(data))
-
-    {:noreply, db_folder}
+  def get_worker(key) do
+    index = :erlang.phash2(key, 3)
+    [{_, pid}] = :ets.lookup(:db_workers, index)
+    pid
   end
-
-  def handle_call({:get, key}, _, db_folder) do
-    data =
-      case File.read(file_name(db_folder, key)) do
-        {:ok, content} -> :erlang.binary_to_term(content)
-        _ -> nil
-      end
-
-    {:reply, data, db_folder}
-  end
-
-  defp file_name(db_folder, key), do: "#{db_folder}/#{key}"
 end
