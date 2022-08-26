@@ -11,7 +11,7 @@ defmodule Todo.Cache do
   end
 
   def init(_) do
-    Todo.Database.start("./persist/")
+    Todo.Database.start_link("./persist/")
     {:ok, :ets.new(:cache_registry, [:set, :protected, :named_table])}
   end
 
@@ -21,7 +21,7 @@ defmodule Todo.Cache do
         {:reply, pid, servers}
 
       [] ->
-        {:ok, new_pid} = Todo.List.start(todo_list_name)
+        {:ok, new_pid} = Todo.List.start_link(todo_list_name)
 
         {:reply, new_pid, :ets.insert(:cache_registry, {todo_list_name, new_pid})}
     end
